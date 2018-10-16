@@ -1,0 +1,106 @@
+Domain Objects Design:
+
+
+DeliveryFactory
+{
+    Delivery Schedule(ScheduleDelivery command)
+}
+
+Delivery
+{
+    UUID _id;
+    IDeliveryEvents _events;
+
+    void Edit(EditDelivery command)
+    void Cancel(CancelDelivery command)
+}
+
+PlanCompleteness
+{
+    Date _id;
+    Amounts _demanded;
+    Amounts _planned;
+
+    void Apply(DeliveryChanged event)
+    void Apply(DemandedLevelChanged event)
+
+    Amounts Diff()
+}
+
+DeliveryPlan
+{
+    Date _id;
+    IDeliveryEvents _events;
+
+    IPlanCompletenessRepository _completeness;
+    IDemandForecasting _demands;
+
+    void Close(ClosePlan command)
+}
+
+IDeliveryRepository
+{
+    Delivery Get(UUID id)
+}
+
+IDeliveryPlanRepository
+{
+    DeliveryPlan Get(Date id)
+}
+
+IPlanCompletenessRepository
+{
+    PlanCompleteness Get(Date id)
+}
+
+IDemandForecasting
+{
+    void AdjustDemand(AdjustDemand command)
+}
+
+IDeliveryEvents
+{
+    void Emit(DeliveryChanged event)
+    void Emit(PlanningClosed event)
+}
+
+
+Example Adapters and modules glue code:
+
+DeliveryEventsPropagation
+{
+    IPlanCompletenessRepository _compl;
+
+    void Emit(DeliveryChanged event)
+    {
+        //eventStore.Save(event);
+        _compl.Get(event.Id).Apply(event);
+        //rabbitAdapter.Send(event);
+    }
+
+    void Emit(PlanningClosed event)
+    {
+    }
+}
+
+
+RabbitAdapter
+{
+    Channel _channel;
+
+    void Send(DeliveryChanged event)
+    {
+        _channel.BasicPublish(
+             routingKey:"DeliveryChanged",
+             body: ToJSON(event)
+        );
+    }
+
+    void Send(PlanningClosed event)
+    {
+        _channel.BasicPublish(
+             routingKey:"PlanningClosed",
+             body: ToJSON(event)
+        );
+    }
+}
